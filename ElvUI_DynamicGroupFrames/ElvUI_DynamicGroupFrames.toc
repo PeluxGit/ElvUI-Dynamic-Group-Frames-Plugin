@@ -1,0 +1,13 @@
+## Interface: 110205
+## Title: ElvUI Dynamic Group Frames
+## Notes: Automatically switches which Party/Raid group unit frames are shown based on the actual number of players.
+## Author: Pelux
+## Version: 1.0.0
+## RequiredDeps: ElvUI
+## OptionalDeps: Ace3, LibElvUIPlugin-1.0
+## X-Category: UnitFrames
+## X-ElvVersion: 14.02
+## X-Website: https://github.com/PeluxGit/ElvUI-Dynamic-Group-Frames-Plugin
+
+Core.lua
+Options.lua

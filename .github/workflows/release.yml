@@ -1,0 +1,60 @@
+name: Release (zip + attach)
+
+on:
+    push:
+        tags:
+            - "v*"
+    workflow_dispatch: {}
+
+jobs:
+    build-and-release:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - name: Compute version from tag
+              id: v
+              run: |
+                  RAW="${GITHUB_REF##*/}"      # e.g. v1.0.0
+                  echo "tag=$RAW" >> $GITHUB_OUTPUT
+                  echo "version=${RAW#v}" >> $GITHUB_OUTPUT  # 1.0.0
+
+            - name: Prepare zip
+              id: pkg
+              shell: bash
+              run: |
+                  set -euo pipefail
+
+                  ROOT="ElvUI_DynamicGroupFrames"                # <- folder name in your repo
+                  TOC="$ROOT/${ROOT}.toc"                        # <- path to your .toc
+                  OUTDIR="dist"
+                  OUTZIP="${ROOT}-${{ steps.v.outputs.tag }}.zip"
+
+                  mkdir -p "$OUTDIR"
+
+                  # Update the .toc Version line to match the tag's numeric part
+                  if [[ -f "$TOC" ]]; then
+                    sed -i -E 's/^##[[:space:]]*Version:.*$/## Version: ${{ steps.v.outputs.version }}/' "$TOC"
+                  else
+                    echo "::warning::TOC not found at $TOC; skipping version bump"
+                  fi
+
+                  # Create the zip with the correct top-level folder name
+                  # (zips only the addon folder, not the whole repo)
+                  (zip -r "$OUTDIR/$OUTZIP" "$ROOT" -x "*/.git/*" >/dev/null)
+
+                  echo "zip_path=$OUTDIR/$OUTZIP" >> $GITHUB_OUTPUT
+
+            - name: Attach to GitHub Release
+              uses: softprops/action-gh-release@v2
+              with:
+                  tag_name: ${{ steps.v.outputs.tag }}
+                  name: ${{ steps.v.outputs.tag }}
+                  body_path: CHANGELOG.md # optional; will use full changelog
+                  files: ${{ steps.pkg.outputs.zip_path }}
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
