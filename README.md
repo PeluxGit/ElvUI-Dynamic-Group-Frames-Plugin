@@ -1,6 +1,6 @@
 # ElvUI Dynamic Group Frames (EDGF)
 
-Keep your raid frames consistent—no matter how Blizzard’s subgroups are filled.
+Keep your raid frames consistent, no matter how subgroups are filled.
 
 **EDGF** is an ElvUI plugin that **automatically switches** between the **Party**, **Raid1**, **Raid2**, and **Raid3** **group unit frames** based on the _actual number of players_ in your group/raid (not on whether certain unit “positions” exist). This is ideal when subgroups are **not** filled contiguously (e.g., 10 players spread across 3 subgroups) but you still want a clean **2×5** look.
 
@@ -74,11 +74,11 @@ Click **Apply Now** (or type **`/edgf`**) to force an immediate update out of co
     - 1–5 → **Party**
     - 6…Raid1Max → **Raid1**
     - (Raid1Max+1)…Raid2Max → **Raid2**
-    - > Raid2Max → **Raid3**
+    - \> Raid2Max → **Raid3**
   - (**Use Party = OFF**)
     - 1…Raid1Max → **Raid1**
     - (Raid1Max+1)…Raid2Max → **Raid2**
-    - > Raid2Max → **Raid3**
+    - \> Raid2Max → **Raid3**
 - Internally (out of combat) ensures options that keep raid-wide sorting layouts stable:
   - `raidWideSorting = true`
   - `groupFilter     = "1,2,3,4,5,6,7,8"`
@@ -105,7 +105,7 @@ Click **Apply Now** (or type **`/edgf`**) to force an immediate update out of co
 - **ElvUI options may not reflect `numGroups` immediately.**  
   Frames update right away, but the numeric setting in ElvUI’s UI may only refresh after switching tabs or reloading. It’s cosmetic.
 - **Visibility input** in ElvUI will be overwritten by EDGF during the next roster change or when you press **Apply Now**.
-- **Per-bucket styling** — Tweak ElvUI’s **Party**, **Raid1**, **Raid2**, **Raid3** pages to scale text/auras appropriately.
+- **Per-bucket styling** Tweak ElvUI’s **Party**, **Raid1**, **Raid2**, **Raid3** pages to scale unit frames appropriately.
 
 ---
 
