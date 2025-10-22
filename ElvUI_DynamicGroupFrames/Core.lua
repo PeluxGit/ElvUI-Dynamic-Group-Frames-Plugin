@@ -11,7 +11,7 @@ local EDGF                 = E:NewModule("EDGF", "AceEvent-3.0")
 -- ==============================
 P.EDGF                     = {
   enable   = true,
-  useParty = true, -- NEW: let users disable Party frames and start buckets at Raid1
+  useParty = true, -- allow skipping Party frames (start at Raid1 from 1 player)
   buckets  = { partyMax = 5, raid1Max = 15, raid2Max = 25 },
 }
 
@@ -26,6 +26,7 @@ local ENFORCE_VALUES       = {
   raidWideSorting    = true,
   groupFilter        = "1,2,3,4,5,6,7,8",
   keepGroupsTogether = false,
+  -- numGroups for raid headers is forced to 8 (see EnforceMinimal)
 }
 
 -- ==============================
@@ -35,7 +36,7 @@ local function UnitsDB()
   return E and E.db and E.db.unitframe and E.db.unitframe.units
 end
 
--- Keep bounds coherent; respect useParty
+-- Normalize/clamp bucket bounds to keep ordering coherent
 local function NormalizeBucketBounds()
   local db = E.db and E.db.EDGF
   local b  = db and db.buckets
@@ -48,10 +49,9 @@ local function NormalizeBucketBounds()
   local raid2Max = tonumber(b.raid2Max) or 25
 
   if useParty then
-    partyMax = 5                                                        -- locked to 5
+    partyMax = 5
     raid1Max = math.max(partyMax + 1, math.min(raid1Max, raid2Max - 1)) -- ≥ 6
   else
-    -- party bucket ignored; allow Raid1 to start at 1
     raid1Max = math.max(1, math.min(raid1Max, raid2Max - 1))
   end
   raid2Max = math.max(raid1Max + 1, math.min(raid2Max, 40))
@@ -86,7 +86,6 @@ local function GetBucket(db, size)
       return "raid3"
     end
   else
-    -- no party: start mapping at Raid1
     if size <= (b.raid1Max or 15) then
       return "raid1"
     elseif size <= (b.raid2Max or 25) then
@@ -94,30 +93,6 @@ local function GetBucket(db, size)
     else
       return "raid3"
     end
-  end
-end
-
--- smart minimum capacity based on configured bucket upper-bounds
-local function SmartNumGroupsFor(headerKey)
-  local db = E.db and E.db.EDGF
-  local b  = db and db.buckets
-  if not b then return 8 end
-
-  if headerKey == "party" then
-    -- Only relevant if party is used
-    if db and (db.useParty ~= false) then
-      return 1
-    else
-      return 1 -- won't be used anyway
-    end
-  elseif headerKey == "raid1" then
-    local n = math.ceil((b.raid1Max or 15) / 5)
-    return math.max(1, math.min(n, 8))
-  elseif headerKey == "raid2" then
-    local n = math.ceil((b.raid2Max or 25) / 5)
-    return math.max(1, math.min(n, 8))
-  else
-    return 8 -- 26–40
   end
 end
 
@@ -137,7 +112,7 @@ local function SetHeaderVisibility(units, showKey, keys)
 end
 
 -- ==============================
--- Minimal enforcement (internal; lower-bound numGroups + fixed knobs)
+-- Minimal enforcement
 -- ==============================
 function EDGF:EnforceMinimal(headerKey)
   if not headerKey or InCombatLockdown() then return end
@@ -165,21 +140,22 @@ function EDGF:EnforceMinimal(headerKey)
   end
 
   if headerKey ~= "party" then
+    -- Enforce knobs for raid group frames
     setDB("raidWideSorting", ENFORCE_VALUES.raidWideSorting)
     setDB("groupFilter", ENFORCE_VALUES.groupFilter)
     setDB("keepGroupsTogether", ENFORCE_VALUES.keepGroupsTogether)
 
-    local required = SmartNumGroupsFor(headerKey)
-    local current  = tonumber(cfg.numGroups) or 0
-    if current < required then
-      setDB("numGroups", required) -- raise to minimum needed
+    -- IMPORTANT: Always include all 8 subgroups so no one is dropped.
+    if tonumber(cfg.numGroups) ~= 8 then
+      setDB("numGroups", 8)
     end
   else
-    -- Party (only when useParty = true): ensure at least 1
-    local current = tonumber(cfg.numGroups) or 0
-    if current < 1 then setDB("numGroups", 1) end
-    -- Ensure party is enabled if user wants party
-    if cfg.enable == false then setDB("enable", true) end
+    -- Party: ensure enabled (when used) and at least 1 group shown
+    if E.db.EDGF and (E.db.EDGF.useParty ~= false) then
+      if cfg.enable == false then setDB("enable", true) end
+      local current = tonumber(cfg.numGroups) or 0
+      if current < 1 then setDB("numGroups", 1) end
+    end
   end
 
   if changed then
