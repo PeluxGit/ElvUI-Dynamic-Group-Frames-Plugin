@@ -38,8 +38,6 @@ Keep your raid frames consistent, no matter how subgroups are filled.
    ```
 3. Restart WoW or `/reload`.
 
-> Folder must be **ElvUI_DynamicGroupFrames**.
-
 ---
 
 ## Configure
