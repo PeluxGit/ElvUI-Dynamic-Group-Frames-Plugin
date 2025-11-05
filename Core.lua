@@ -303,7 +303,7 @@ end
 -- Flushes pending work after combat ends; runs normalize/enforce if queued
 function EDGF:PLAYER_REGEN_ENABLED()
   if self._pending then
-    self._pending = false; self:apply_all(); safe_print("|cff88ccffEDGF|r: applied after combat.")
+    self._pending = false; self:apply_all()
   end
   if self._normalizePending then
     self._normalizePending = false; self:normalize_all()
