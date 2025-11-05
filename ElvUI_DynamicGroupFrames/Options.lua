@@ -3,6 +3,12 @@ local E, L, V, P, G = unpack(ElvUI)
 
 -- No widths: let ElvUI/Ace lay out the sliders on one row.
 
+-- Keep limits centralized
+local MAX_PARTY_SIZE   = 5
+local DEFAULT_RAID1MAX = 15
+local DEFAULT_RAID2MAX = 25
+local MAX_RAID_SIZE    = 40
+
 local function rangeOption(name, min, max, step)
   return { type = "range", name = name, min = min, max = max, step = step or 1 }
 end
@@ -26,7 +32,9 @@ function NS.InsertOptions()
         name = "Enable",
         get = function() return E.db.EDGF.enable end,
         set = function(_, v)
-          E.db.EDGF.enable = v; E:GetModule("EDGF"):ApplyAll()
+          E.db.EDGF.enable = v
+          local mod = E:GetModule("EDGF")
+          mod:ScheduleReapplyNormalize(0.05)
         end
       },
 
@@ -43,17 +51,16 @@ function NS.InsertOptions()
           local b = E.db.EDGF.buckets
           if v then
             -- party fixed to 5; ensure Raid1 >= 6
-            b.partyMax = 5
-            b.raid1Max = math.max(b.partyMax + 1, math.min(b.raid1Max or 15, (b.raid2Max or 25) - 1))
-            b.raid2Max = math.max(b.raid1Max + 1, math.min(b.raid2Max or 25, 40))
+            b.partyMax = MAX_PARTY_SIZE
+            b.raid1Max = math.max(b.partyMax + 1, math.min(b.raid1Max or DEFAULT_RAID1MAX, (b.raid2Max or DEFAULT_RAID2MAX) - 1))
+            b.raid2Max = math.max(b.raid1Max + 1, math.min(b.raid2Max or DEFAULT_RAID2MAX, MAX_RAID_SIZE))
           else
             -- party ignored; allow Raid1 >= 1
-            b.raid1Max = math.max(1, math.min(b.raid1Max or 15, (b.raid2Max or 25) - 1))
-            b.raid2Max = math.max(b.raid1Max + 1, math.min(b.raid2Max or 25, 40))
+            b.raid1Max = math.max(1, math.min(b.raid1Max or DEFAULT_RAID1MAX, (b.raid2Max or DEFAULT_RAID2MAX) - 1))
+            b.raid2Max = math.max(b.raid1Max + 1, math.min(b.raid2Max or DEFAULT_RAID2MAX, MAX_RAID_SIZE))
           end
           local mod = E:GetModule("EDGF")
-          mod:ApplyAll()
-          mod:NormalizeAll()
+          mod:ScheduleReapplyNormalize(0.1)
         end
       },
 
@@ -69,40 +76,41 @@ function NS.InsertOptions()
             order = 1,
             type = "range",
             name = "Party (fixed to 5)",
-            min = 5,
-            max = 5,
+            min = MAX_PARTY_SIZE,
+            max = MAX_PARTY_SIZE,
             step = 1,
             hidden = function() return E.db.EDGF.useParty == false end,
             disabled = true,
-            get = function() return 5 end,
+            get = function() return MAX_PARTY_SIZE end,
             set = function() end,
           },
 
           -- Raid1: min is dynamic via clamping in set()
-          raid1Max = rangeOption("Raid1", 1, 25, 1),
+          raid1Max = rangeOption("Raid1", 1, DEFAULT_RAID2MAX - 1, 1),
 
-          raid2Max = rangeOption("Raid2", 2, 40, 1),
+          raid2Max = rangeOption("Raid2", 2, MAX_RAID_SIZE, 1),
         },
         get = function(info) return E.db.EDGF.buckets[info[#info]] end,
         set = function(info, val)
           local b = E.db.EDGF.buckets
           local key = info[#info]
           local useParty = E.db.EDGF.useParty ~= false
+          local n = tonumber(val) or 0
 
           if key == "partyMax" then
             -- not editable (disabled), but keep logic here in case of external edits
-            b.partyMax = 5
+            b.partyMax = MAX_PARTY_SIZE
           elseif key == "raid1Max" then
-            local minR1 = useParty and (b.partyMax + 1) or 1
-            b.raid1Max  = math.min(math.max(minR1, val), (b.raid2Max or 25) - 1)
+            local minR1 = useParty and ((b.partyMax or MAX_PARTY_SIZE) + 1) or 1
+            local upper = (b.raid2Max or DEFAULT_RAID2MAX) - 1
+            b.raid1Max  = math.min(math.max(minR1, n), upper)
           else -- raid2Max
-            local minR2 = (b.raid1Max or 15) + 1
-            b.raid2Max  = math.min(math.max(minR2, val), 40)
+            local minR2 = (b.raid1Max or DEFAULT_RAID1MAX) + 1
+            b.raid2Max  = math.min(math.max(minR2, n), MAX_RAID_SIZE)
           end
 
           local mod = E:GetModule("EDGF")
-          mod:ApplyAll()
-          mod:NormalizeAll()
+          mod:ScheduleReapplyNormalize(0.1)
         end,
       },
 
@@ -120,6 +128,18 @@ function NS.InsertOptions()
         type = "execute",
         name = "Apply Now",
         func = function() E:GetModule("EDGF"):ApplyNow() end,
+      },
+
+      reset = {
+        order = 101,
+        type = "execute",
+        name = "Reset to Defaults",
+        confirm = true,
+        confirmText = "Reset EDGF settings to defaults?",
+        func = function()
+          local mod = E:GetModule("EDGF")
+          if mod and mod.ResetToDefaults then mod:ResetToDefaults() end
+        end,
       },
     },
   }
