@@ -1,60 +1,56 @@
-name: Release (zip + attach)
+name: Release Addon
 
 on:
-    push:
-        tags:
-            - "v*"
-    workflow_dispatch: {}
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      skip_publish:
+        description: 'Skip publishing to CurseForge/Wago (only create zip)'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
-    build-and-release:
-        runs-on: ubuntu-latest
+  build-and-publish:
+    name: Build and publish addon
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
-              with:
-                  fetch-depth: 0
+      - name: Update TOC version from tag
+        run: |
+          VERSION="${{ github.ref_name }}"
+          VERSION="${VERSION#v}"
+          sed -i "s/^## Version: .*/## Version: $VERSION/" ElvUI_DynamicGroupFrames.toc
+          echo "Updated TOC to version $VERSION"
 
-            - name: Compute version from tag
-              id: v
-              run: |
-                  RAW="${GITHUB_REF##*/}"      # e.g. v1.0.0
-                  echo "tag=$RAW" >> $GITHUB_OUTPUT
-                  echo "version=${RAW#v}" >> $GITHUB_OUTPUT  # 1.0.0
+      - name: Create addon zip
+        run: |
+          set -euxo pipefail
+          ZIP_NAME="ElvUI_DynamicGroupFrames-${{ github.ref_name }}.zip"
+          # Create a temp directory with addon structure
+          mkdir -p package/ElvUI_DynamicGroupFrames
+          # Copy all addon files (excluding repo metadata)
+          rsync -av --exclude='.git' --exclude='.github' --exclude='.gitignore' --exclude='.pkgmeta' --exclude='.vscode' --exclude='.luarc.json' --exclude='LICENSE' --exclude='README.md' --exclude='CHANGELOG.md' --exclude='ElvUI_DynamicGroupFrames' ./ package/ElvUI_DynamicGroupFrames/
+          cd package
+          zip -r "../$ZIP_NAME" ElvUI_DynamicGroupFrames
+          cd ..
+          ls -lah "$ZIP_NAME"
 
-            - name: Prepare zip
-              id: pkg
-              shell: bash
-              run: |
-                  set -euo pipefail
+      - name: Upload asset to GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ElvUI_DynamicGroupFrames-${{ github.ref_name }}.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-                  ROOT="ElvUI_DynamicGroupFrames"                # <- folder name in your repo
-                  TOC="$ROOT/${ROOT}.toc"                        # <- path to your .toc
-                  OUTDIR="dist"
-                  OUTZIP="${ROOT}-${{ steps.v.outputs.tag }}.zip"
-
-                  mkdir -p "$OUTDIR"
-
-                  # Update the .toc Version line to match the tag's numeric part
-                  if [[ -f "$TOC" ]]; then
-                    sed -i -E 's/^##[[:space:]]*Version:.*$/## Version: ${{ steps.v.outputs.version }}/' "$TOC"
-                  else
-                    echo "::warning::TOC not found at $TOC; skipping version bump"
-                  fi
-
-                  # Create the zip with the correct top-level folder name
-                  # (zips only the addon folder, not the whole repo)
-                  (zip -r "$OUTDIR/$OUTZIP" "$ROOT" -x "*/.git/*" >/dev/null)
-
-                  echo "zip_path=$OUTDIR/$OUTZIP" >> $GITHUB_OUTPUT
-
-            - name: Attach to GitHub Release
-              uses: softprops/action-gh-release@v2
-              with:
-                  tag_name: ${{ steps.v.outputs.tag }}
-                  name: ${{ steps.v.outputs.tag }}
-                  body_path: CHANGELOG.md # optional; will use full changelog
-                  files: ${{ steps.pkg.outputs.zip_path }}
-              env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish to CurseForge and Wago
+        if: ${{ !inputs.skip_publish && !github.event.release.prerelease }}
+        uses: BigWigsMods/packager@v2
+        env:
+          CF_API_KEY: ${{ secrets.CURSEFORGE_TOKEN }}
+          WAGO_API_TOKEN: ${{ secrets.WAGO_TOKEN }}

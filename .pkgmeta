@@ -1,0 +1,12 @@
+package-as: ElvUI_DynamicGroupFrames
+
+ignore:
+  - .git
+  - .github
+  - .gitignore
+  - .vscode
+  - .luarc.json
+  - ElvUI_DynamicGroupFrames/
+  - LICENSE
+  - README.md
+  - CHANGELOG.md
