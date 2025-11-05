@@ -7,7 +7,7 @@ local UF -- filled on init
 local EDGF                 = E:NewModule("EDGF", "AceEvent-3.0")
 
 -- ==============================
--- Constants (avoid magic numbers)
+-- Constants
 -- ==============================
 local MAX_PARTY_SIZE   = 5
 local DEFAULT_RAID1MAX = 15
