@@ -5,8 +5,8 @@ local E, L, V, P, G = unpack(ElvUI)
 
 -- Keep limits centralized
 local MAX_PARTY_SIZE   = 5
-local DEFAULT_RAID1MAX = 15
-local DEFAULT_RAID2MAX = 25
+local DEFAULT_RAID1MAX = 20
+local DEFAULT_RAID2MAX = 30
 local MAX_RAID_SIZE    = 40
 
 local function rangeOption(name, min, max, step)
