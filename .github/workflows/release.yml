@@ -35,7 +35,7 @@ jobs:
           # Create a temp directory with addon structure
           mkdir -p package/ElvUI_DynamicGroupFrames
           # Copy all addon files (excluding repo metadata)
-          rsync -av --exclude='.git' --exclude='.github' --exclude='.gitignore' --exclude='.pkgmeta' --exclude='.vscode' --exclude='.luarc.json' --exclude='LICENSE' --exclude='README.md' --exclude='CHANGELOG.md' --exclude='ElvUI_DynamicGroupFrames' ./ package/ElvUI_DynamicGroupFrames/
+          rsync -av --exclude='.git' --exclude='.github' --exclude='.gitignore' --exclude='.pkgmeta' --exclude='.vscode' --exclude='.luarc.json' --exclude='LICENSE' --exclude='README.md' --exclude='CHANGELOG.md' ./ package/ElvUI_DynamicGroupFrames/
           cd package
           zip -r "../$ZIP_NAME" ElvUI_DynamicGroupFrames
           cd ..

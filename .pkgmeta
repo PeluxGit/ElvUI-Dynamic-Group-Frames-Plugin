@@ -6,7 +6,6 @@ ignore:
   - .gitignore
   - .vscode
   - .luarc.json
-  - ElvUI_DynamicGroupFrames/
   - LICENSE
   - README.md
   - CHANGELOG.md
