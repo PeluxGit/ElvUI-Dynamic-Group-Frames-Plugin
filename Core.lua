@@ -375,17 +375,7 @@ end
 
 E:RegisterModule(EDGF:GetName())
 
--- removed legacy aliases; methods are now snake_case by default
-
--- Helper: deeply copy a table (for reset-to-defaults)
-local function deepcopy(orig)
-  if type(orig) ~= 'table' then return orig end
-  local copy = {}
-  for k, v in pairs(orig) do copy[k] = deepcopy(v) end
-  return copy
-end
-
--- Reset bucket values to default 5/20/30/40, enforce normalization
+-- Reset bucket values to default, enforce normalization
 function EDGF:reset_to_defaults()
   if InCombatLockdown() then
     safe_print("|cffe74c3cEDGF|r: Cannot reset during combat."); return
