@@ -124,7 +124,7 @@ local function normalize_bucket_bounds()
 
   if useParty then
     partyMax = MAX_PARTY_SIZE
-    raid1Max = math.max(partyMax + 1, math.min(raid1Max, raid2Max - 1)) -- ≥ 6
+    raid1Max = math.max(partyMax + 1, math.min(raid1Max, raid2Max - 1))
   else
     raid1Max = math.max(1, math.min(raid1Max, raid2Max - 1))
   end
@@ -299,8 +299,6 @@ function EDGF:apply_now()
   if key then self:enforce_minimal(key) end
   safe_print("|cff88ccffEDGF|r: applied.")
 end
-
--- hook_uf moved above; used to re-enforce after UF rebuilds the active header
 
 -- Flushes pending work after combat ends; runs normalize/enforce if queued
 function EDGF:PLAYER_REGEN_ENABLED()

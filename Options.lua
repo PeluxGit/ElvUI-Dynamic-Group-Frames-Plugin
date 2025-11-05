@@ -1,8 +1,7 @@
 local AddOnName, NS = ...
 local E, L, V, P, G = unpack(ElvUI)
 
- -- Consume limits from Core (single source of truth); no magic-number fallbacks
- local C = assert(NS and NS.EDGF_CONST, "EDGF_CONST missing; ensure Core.lua loads before Options.lua")
+local C = assert(NS and NS.EDGF_CONST, "EDGF_CONST missing; ensure Core.lua loads before Options.lua")
 
 local function rangeOption(name, min, max, step)
   return { type = "range", name = name, min = min, max = max, step = step or 1 }
@@ -33,7 +32,6 @@ function NS.InsertOptions()
         end
       },
 
-      -- NEW: Use Party Frames
       useParty = {
         order = 2,
         type  = "toggle",
@@ -58,7 +56,6 @@ function NS.InsertOptions()
         end
       },
 
-      -- Buckets
       bucketsGroup = {
         order = 10,
         type = "group",
