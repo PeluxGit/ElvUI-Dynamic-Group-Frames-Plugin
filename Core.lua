@@ -373,8 +373,6 @@ function EDGF:Initialize()
   end
 end
 
-E:RegisterModule(EDGF:GetName())
-
 -- Reset bucket values to default, enforce normalization
 function EDGF:reset_to_defaults()
   if InCombatLockdown() then
@@ -390,3 +388,5 @@ function EDGF:reset_to_defaults()
   self:apply_all()
   safe_print("|cff88ccffEDGF|r: Reset to defaults.")
 end
+
+E:RegisterModule(EDGF:GetName())
