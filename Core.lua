@@ -3,60 +3,60 @@ local E, L, V, P, G        = unpack(ElvUI)
 local EP                   = LibStub and LibStub("LibElvUIPlugin-1.0", true)
 local UF -- filled on init
 
--- Module
+-- Module registration
 local EDGF                 = E:NewModule("EDGF", "AceEvent-3.0")
 
--- ==============================
--- Constants
--- ==============================
+-- Constants: party/raid sizes and default bucket caps
 local MAX_PARTY_SIZE   = 5
-local DEFAULT_RAID1MAX = 15
-local DEFAULT_RAID2MAX = 25
+local DEFAULT_RAID1MAX = 20
+local DEFAULT_RAID2MAX = 30
 local MAX_RAID_SIZE    = 40
 
--- ==============================
--- Defaults (profile)
--- ==============================
+-- Expose constants to other files via shared namespace
+NS.EDGF_CONST = {
+  MAX_PARTY_SIZE   = MAX_PARTY_SIZE,
+  DEFAULT_RAID1MAX = DEFAULT_RAID1MAX,
+  DEFAULT_RAID2MAX = DEFAULT_RAID2MAX,
+  MAX_RAID_SIZE    = MAX_RAID_SIZE,
+}
+
+-- ElvUI profile defaults for this module
 P.EDGF                     = {
   enable   = true,
   useParty = true, -- allow skipping Party frames (start at Raid1 from 1 player)
   buckets  = { partyMax = MAX_PARTY_SIZE, raid1Max = DEFAULT_RAID1MAX, raid2Max = DEFAULT_RAID2MAX },
 }
 
--- ==============================
--- Internal constants
--- ==============================
+-- Internal timings and startup behavior
 local DELAYS               = { debounce = 0.20, enforce = 0.05 }
 local ENFORCE_ALL_ON_LOGIN = true
 
--- Values we always enforce (documented, not exposed in UI)
+-- Values we always enforce on raid headers (not exposed in UI)
 local ENFORCE_VALUES       = {
   raidWideSorting    = true,
   groupFilter        = "1,2,3,4,5,6,7,8",
   keepGroupsTogether = false,
-  -- numGroups for raid headers is forced to 8 (see EnforceMinimal)
 }
 
--- ==============================
--- Helpers
--- ==============================
-local function UnitsDB()
+-- Returns the unitframe units DB table or nil
+local function units_db()
   return E and E.db and E.db.unitframe and E.db.unitframe.units
 end
 
--- Safe printing and pcall wrapper
-local function SafePrint(msg)
+-- Prints via ElvUI if available; falls back to print
+local function safe_print(msg)
   if E and E.Print then E:Print(msg) else print(msg) end
 end
 
-function EDGF:_safeCall(fn, ...)
+-- pcall wrapper that logs errors via safe_print
+function EDGF:_safe_call(fn, ...)
   if type(fn) ~= "function" then return end
   local ok, err = pcall(fn, ...)
-  if not ok and err then SafePrint("|cff88ccffEDGF|r error: "..tostring(err)) end
+  if not ok and err then safe_print("|cff88ccffEDGF|r error: "..tostring(err)) end
 end
 
--- UF getter + deferred hook (handles race conditions)
-function EDGF:GetUF()
+-- Retrieves and caches ElvUI UnitFrames module (handles race conditions)
+function EDGF:get_uf()
   if not UF and E and E.GetModule then
     local ok, mod = pcall(E.GetModule, E, "UnitFrames")
     if ok then UF = mod end
@@ -64,15 +64,16 @@ function EDGF:GetUF()
   return UF
 end
 
-local function HookUF()
-  if not EDGF:GetUF() or EDGF._hooked then return end
-  EDGF:_safeCall(hooksecurefunc, UF, "CreateAndUpdateHeaderGroup", function(_, unit)
+-- Hooks UF header rebuilds to re-enforce minimal settings on the active header
+local function hook_uf()
+  if not EDGF:get_uf() or EDGF._hooked then return end
+  EDGF:_safe_call(hooksecurefunc, UF, "CreateAndUpdateHeaderGroup", function(_, unit)
     if unit and unit == EDGF._currentHeaderKey then
       C_Timer.After(DELAYS.enforce, function()
         if InCombatLockdown() then
           EDGF._needEnforce = unit
         else
-          EDGF:EnforceMinimal(unit)
+          EDGF:enforce_minimal(unit)
         end
       end)
     end
@@ -80,12 +81,13 @@ local function HookUF()
   EDGF._hooked = true
 end
 
-function EDGF:EnsureUFHook()
+-- Retries until UnitFrames is available, then installs the hook
+function EDGF:ensure_uf_hook()
   if self._hooked then return end
   local tries = 0
   local function attempt()
     tries = tries + 1
-    HookUF()
+    hook_uf()
     if not EDGF._hooked and tries < 20 then
       C_Timer.After(0.25, attempt)
     end
@@ -93,8 +95,8 @@ function EDGF:EnsureUFHook()
   attempt()
 end
 
--- Coalesce rapid option changes into one apply+normalize
-function EDGF:ScheduleReapplyNormalize(delay)
+-- Debounces apply_all + normalize_all after options changes
+function EDGF:schedule_reapply_normalize(delay)
   delay = delay or 0.25
   if self._optTimer then self._optTimer:Cancel() end
   self._optTimer = C_Timer.NewTimer(delay, function()
@@ -103,13 +105,13 @@ function EDGF:ScheduleReapplyNormalize(delay)
       self._normalizePending = true
       return
     end
-    self:ApplyAll()
-    self:NormalizeAll()
+  self:apply_all()
+  self:normalize_all()
   end)
 end
 
--- Normalize/clamp bucket bounds to keep ordering coherent
-local function NormalizeBucketBounds()
+-- Clamps/normalizes bucket caps to maintain ascending order; respects useParty
+local function normalize_bucket_bounds()
   local db = E.db and E.db.EDGF
   local b  = db and db.buckets
   if not b then return end
@@ -133,7 +135,8 @@ local function NormalizeBucketBounds()
   b.raid2Max = raid2Max
 end
 
-local function GetManagedKeys()
+-- Returns managed header keys based on whether party usage is enabled
+local function get_managed_keys()
   local db = E.db and E.db.EDGF
   local useParty = db and (db.useParty ~= false)
   if useParty then
@@ -143,7 +146,8 @@ local function GetManagedKeys()
   end
 end
 
-local function GetBucket(db, size)
+-- Maps group size to a visibility bucket: party, raid1, raid2, or raid3
+local function get_bucket(db, size)
   local b = db.buckets
   local useParty = (db.useParty ~= false)
 
@@ -168,7 +172,8 @@ local function GetBucket(db, size)
   end
 end
 
-local function SetHeaderVisibility(units, showKey, keys)
+-- Sets visibility for a single active header and hides the others; returns true if any change
+local function set_header_visibility(units, showKey, keys)
   local changed = false
   for _, key in ipairs(keys) do
     local conf = units[key]
@@ -183,12 +188,10 @@ local function SetHeaderVisibility(units, showKey, keys)
   return changed
 end
 
--- ==============================
--- Minimal enforcement
--- ==============================
-function EDGF:EnforceMinimal(headerKey)
+-- Enforces core knobs and minimum numGroups for a given header (respects combat lockdown)
+function EDGF:enforce_minimal(headerKey)
   if not headerKey or InCombatLockdown() then return end
-  local units = UnitsDB(); if not units then return end
+  local units = units_db(); if not units then return end
   local cfg = units[headerKey]; if not cfg then return end
 
   -- If party disabled globally, make sure it's fully off
@@ -200,7 +203,7 @@ function EDGF:EnforceMinimal(headerKey)
     if cfg.enable ~= false then
       cfg.enable = false; changed = true
     end
-    if changed and UF then self:_safeCall(UF.CreateAndUpdateHeaderGroup, UF, "party") end
+    if changed and UF then self:_safe_call(UF.CreateAndUpdateHeaderGroup, UF, "party") end
     return
   end
 
@@ -231,37 +234,35 @@ function EDGF:EnforceMinimal(headerKey)
   end
 
   if changed and UF then
-    self:_safeCall(UF.CreateAndUpdateHeaderGroup, UF, headerKey)
+    self:_safe_call(UF.CreateAndUpdateHeaderGroup, UF, headerKey)
   end
 end
 
--- Normalize all managed group frames at once
-function EDGF:NormalizeAll()
+-- Enforces minimal settings on all managed headers
+function EDGF:normalize_all()
   if InCombatLockdown() then
     self._normalizePending = true
     return
   end
-  local units = UnitsDB(); if not units then return end
-  for _, key in ipairs(GetManagedKeys()) do
-    self:EnforceMinimal(key)
+  local units = units_db(); if not units then return end
+  for _, key in ipairs(get_managed_keys()) do
+    self:enforce_minimal(key)
   end
 end
 
--- ==============================
--- Main apply
--- ==============================
-function EDGF:ApplyAll()
+-- Applies visibility based on current group size and schedules enforcement
+function EDGF:apply_all()
   if not E.db.EDGF.enable then return end
   if InCombatLockdown() then
     self._pending = true; return
   end
 
-  local units = UnitsDB(); if not units then return end
+  local units = units_db(); if not units then return end
   local size    = IsInRaid() and GetNumGroupMembers()
       or (IsInGroup() and (GetNumSubgroupMembers() + 1))
       or 1
 
-  local bucket  = GetBucket(E.db.EDGF, size)
+  local bucket  = get_bucket(E.db.EDGF, size)
   local showKey = bucket
 
   -- If party is disabled, ensure it's hidden/disabled in DB
@@ -270,9 +271,9 @@ function EDGF:ApplyAll()
     units.party.enable = false
   end
 
-  if SetHeaderVisibility(units, showKey, GetManagedKeys()) then
+  if set_header_visibility(units, showKey, get_managed_keys()) then
     for _, key in ipairs({ "party", "raid1", "raid2", "raid3" }) do
-      if units[key] and UF then self:_safeCall(UF.CreateAndUpdateHeaderGroup, UF, key) end
+      if units[key] and UF then self:_safe_call(UF.CreateAndUpdateHeaderGroup, UF, key) end
     end
   end
 
@@ -281,81 +282,76 @@ function EDGF:ApplyAll()
     if InCombatLockdown() then
       self._needEnforce = showKey
     else
-      self:EnforceMinimal(showKey)
+      self:enforce_minimal(showKey)
     end
   end)
 end
 
--- Manual apply with immediate enforcement (used by /edgf)
-function EDGF:ApplyNow()
+-- Manually applies and immediately enforces the active header; queues if in combat
+function EDGF:apply_now()
   if InCombatLockdown() then
     self._pending = true
-    SafePrint("|cff88ccffEDGF|r: in combat — queued; will run after combat.")
+    safe_print("|cff88ccffEDGF|r: in combat — queued; will run after combat.")
     return
   end
-  self:ApplyAll()
+  self:apply_all()
   local key = self._currentHeaderKey
-  if key then self:EnforceMinimal(key) end
-  SafePrint("|cff88ccffEDGF|r: applied.")
+  if key then self:enforce_minimal(key) end
+  safe_print("|cff88ccffEDGF|r: applied.")
 end
 
--- After UF rebuilds our active group, re-enforce minimal
--- (HookUF moved above with safety wrappers)
+-- hook_uf moved above; used to re-enforce after UF rebuilds the active header
 
--- ==============================
--- Events
--- ==============================
+-- Flushes pending work after combat ends; runs normalize/enforce if queued
 function EDGF:PLAYER_REGEN_ENABLED()
   if self._pending then
-    self._pending = false; self:ApplyAll(); SafePrint("|cff88ccffEDGF|r: applied after combat.")
+    self._pending = false; self:apply_all(); safe_print("|cff88ccffEDGF|r: applied after combat.")
   end
   if self._normalizePending then
-    self._normalizePending = false; self:NormalizeAll()
+    self._normalizePending = false; self:normalize_all()
   end
   if self._needEnforce then
-    local k = self._needEnforce; self._needEnforce = nil; self:EnforceMinimal(k)
+    local k = self._needEnforce; self._needEnforce = nil; self:enforce_minimal(k)
   end
 end
 
+-- Debounced roster update handler; reapplies after short delay
 function EDGF:GROUP_ROSTER_UPDATE()
   if InCombatLockdown() then
     self._pending = true; return
   end
   if self._debounce then self._debounce:Cancel() end
-  self._debounce = C_Timer.NewTimer(DELAYS.debounce, function() self:ApplyAll() end)
+  self._debounce = C_Timer.NewTimer(DELAYS.debounce, function() self:apply_all() end)
 end
 
+-- On login/zone load: normalize once (out of combat) and apply
 function EDGF:PLAYER_ENTERING_WORLD()
-  NormalizeBucketBounds()
+  normalize_bucket_bounds()
   if ENFORCE_ALL_ON_LOGIN and not self._normalized and not InCombatLockdown() then
-    self:NormalizeAll()
+    self:normalize_all()
     self._normalized = true
   end
-  self:ApplyAll()
+  self:apply_all()
 end
 
--- ==============================
--- Slash command (/edgf)
--- ==============================
-local function RegisterSlash()
+-- Registers the /edgf slash command to trigger apply_now
+local function register_slash()
   SLASH_EDGF1 = "/edgf"
   SlashCmdList.EDGF = function(msg)
-    EDGF:ApplyNow()
+    EDGF:apply_now()
   end
 end
 
--- ==============================
--- Module init
--- ==============================
+-- Module initialization: hooks UF, registers events, wires options, schedules initial apply
 function EDGF:Initialize()
-  self:GetUF()
-  self:EnsureUFHook()
+  self:get_uf()
+  self:ensure_uf_hook()
 
   self:RegisterEvent("GROUP_ROSTER_UPDATE")
   self:RegisterEvent("PLAYER_ENTERING_WORLD")
   self:RegisterEvent("PLAYER_REGEN_ENABLED")
 
-  RegisterSlash()
+  register_slash()
 
   if EP then
     EP:RegisterPlugin(AddOnName, function()
@@ -363,44 +359,44 @@ function EDGF:Initialize()
     end)
   end
 
-  C_Timer.After(0.1, function() EDGF:ApplyAll() end)
+  C_Timer.After(0.1, function() EDGF:apply_all() end)
 
   -- Best-effort profile change support (depends on ElvUI/AceDB)
   local function onProfileEvent()
-    EDGF:ScheduleReapplyNormalize(0.1)
+    EDGF:schedule_reapply_normalize(0.1)
   end
   if E and E.data and E.data.RegisterCallback then
     -- Try both callback signatures safely
-    self:_safeCall(function() E.data:RegisterCallback("OnProfileChanged", onProfileEvent) end)
-    self:_safeCall(function() E.data:RegisterCallback("OnProfileCopied", onProfileEvent) end)
-    self:_safeCall(function() E.data:RegisterCallback("OnProfileReset", onProfileEvent) end)
+    self:_safe_call(function() E.data:RegisterCallback("OnProfileChanged", onProfileEvent) end)
+    self:_safe_call(function() E.data:RegisterCallback("OnProfileCopied", onProfileEvent) end)
+    self:_safe_call(function() E.data:RegisterCallback("OnProfileReset", onProfileEvent) end)
   end
 end
 
 E:RegisterModule(EDGF:GetName())
 
--- ==============================
--- snake_case aliases (non-breaking)
--- ==============================
-function EDGF:apply_all() return self:ApplyAll() end
-function EDGF:normalize_all() return self:NormalizeAll() end
-function EDGF:enforce_minimal(k) return self:EnforceMinimal(k) end
-function EDGF:apply_now() return self:ApplyNow() end
+-- removed legacy aliases; methods are now snake_case by default
 
--- ==============================
--- Reset to defaults (for Options UI)
--- ==============================
-local function deepcopy(tbl)
-  if type(tbl) ~= "table" then return tbl end
-  local t = {}
-  for k, v in pairs(tbl) do t[k] = deepcopy(v) end
-  return t
+-- Helper: deeply copy a table (for reset-to-defaults)
+local function deepcopy(orig)
+  if type(orig) ~= 'table' then return orig end
+  local copy = {}
+  for k, v in pairs(orig) do copy[k] = deepcopy(v) end
+  return copy
 end
 
-function EDGF:ResetToDefaults()
-  if not P or not P.EDGF or not E or not E.db then return end
-  E.db.EDGF = deepcopy(P.EDGF)
-  NormalizeBucketBounds()
-  self:ScheduleReapplyNormalize(0.05)
-  SafePrint("|cff88ccffEDGF|r: settings reset to defaults.")
+-- Reset bucket values to default 5/20/30/40, enforce normalization
+function EDGF:reset_to_defaults()
+  if InCombatLockdown() then
+    safe_print("|cffe74c3cEDGF|r: Cannot reset during combat."); return
+  end
+  if not P.EDGF then P.EDGF = {} end
+  P.EDGF.useParty = true
+  P.EDGF.party_max_size = MAX_PARTY_SIZE
+  P.EDGF.raid1_max_size = DEFAULT_RAID1MAX
+  P.EDGF.raid2_max_size = DEFAULT_RAID2MAX
+  P.EDGF.raid3_max_size = MAX_RAID_SIZE
+  normalize_bucket_bounds()
+  self:apply_all()
+  safe_print("|cff88ccffEDGF|r: Reset to defaults.")
 end
