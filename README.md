@@ -31,11 +31,22 @@ Keep your raid frames consistent, no matter how subgroups are filled.
 
 ## Install
 
-1. Download the latest release zip.
+### Option 1: Addon Manager (recommended)
+
+Install via your addon manager from:
+
+- [CurseForge](https://www.curseforge.com/wow/addons/elvui-dynamic-group-frames)
+- [Wago.io](https://addons.wago.io/addons/elvui-dynamic-group-frames)
+
+### Option 2: Manual Install
+
+1. Download the latest release zip from [GitHub Releases](https://github.com/PeluxGit/ElvUI-Dynamic-Group-Frames-Plugin/releases).
 2. Extract to:
-   ```
+
+   ```text
    World of Warcraft/_retail_/Interface/AddOns/ElvUI_DynamicGroupFrames
    ```
+
 3. Restart WoW or `/reload`.
 
 ---
@@ -81,8 +92,8 @@ Click **Apply Now** (or type **`/edgf`**) to force an immediate update out of co
   - `raidWideSorting = true`
   - `groupFilter     = "1,2,3,4,5,6,7,8"`
   - `keepGroupsTogether = false`
-  - **numGroups lower bound** based on the active bucket  
-    (e.g., Raid1 max 15 ⇒ `ceil(15/5)=3` groups minimum)
+  - **numGroups = 8** for all raid frames (raid1/raid2/raid3) to ensure no players are dropped
+  - Party frames enforce a minimum of 1 group when enabled
 - **Normalization safeguards**  
   On login and when options change, EDGF clamps bucket values to keep them coherent:
   - With _Use Party Frames = ON_: **Party = 5**, **Raid1 ≥ 6**, **Raid2 > Raid1**, **Raid2 ≤ 40**
@@ -100,10 +111,10 @@ Click **Apply Now** (or type **`/edgf`**) to force an immediate update out of co
 
 ## Tips & Known Quirks
 
-- **ElvUI options may not reflect `numGroups` immediately.**  
-  Frames update right away, but the numeric setting in ElvUI’s UI may only refresh after switching tabs or reloading. It’s cosmetic.
+- **ElvUI options will show `numGroups = 8`** for raid frames.  
+  EDGF enforces this value to ensure all 8 subgroups are always shown, preventing players from being hidden.
 - **Visibility input** in ElvUI will be overwritten by EDGF during the next roster change or when you press **Apply Now**.
-- **Per-bucket styling** Tweak ElvUI’s **Party**, **Raid1**, **Raid2**, **Raid3** pages to scale unit frames appropriately.
+- **Per-bucket styling** Tweak ElvUI's **Party**, **Raid1**, **Raid2**, **Raid3** pages to scale unit frames appropriately.
 
 ---
 
