@@ -1,11 +1,15 @@
-package-as: ElvUI_DynamicGroupFrames
+package-as: "__ADDON_FOLDER__"
+
+enable-nolib-creation: no
 
 ignore:
-  - .git
-  - .github
-  - .gitignore
-  - .vscode
-  - .luarc.json
-  - LICENSE
-  - README.md
-  - CHANGELOG.md
+    # Filled by release workflow from packager-ignore.yml
+    __PACKAGER_IGNORE__
+
+# Use curated changelog content for provider release notes
+changelog-title: "__ADDON_TITLE__ v@project-version@"
+manual-changelog: CHANGELOG_RELEASE.md
+
+# WoWInterface-specific behavior: we'll use manual changelog and convert markdown
+wowi-create-changelog: no
+wowi-convert-changelog: yes

@@ -6,51 +6,18 @@ on:
   workflow_dispatch:
     inputs:
       skip_publish:
-        description: 'Skip publishing to CurseForge/Wago (only create zip)'
+        description: "Only create zip, don't push to addon services"
         required: false
         type: boolean
         default: false
 
 jobs:
-  build-and-publish:
-    name: Build and publish addon
-    runs-on: ubuntu-latest
+  release:
     permissions:
       contents: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Update TOC version from tag
-        run: |
-          VERSION="${{ github.ref_name }}"
-          VERSION="${VERSION#v}"
-          sed -i "s/^## Version: .*/## Version: $VERSION/" ElvUI_DynamicGroupFrames.toc
-          echo "Updated TOC to version $VERSION"
-
-      - name: Create addon zip
-        run: |
-          set -euxo pipefail
-          ZIP_NAME="ElvUI_DynamicGroupFrames-${{ github.ref_name }}.zip"
-          # Create a temp directory with addon structure
-          mkdir -p package/ElvUI_DynamicGroupFrames
-          # Copy all addon files (excluding repo metadata)
-          rsync -av --exclude='.git' --exclude='.github' --exclude='.gitignore' --exclude='.pkgmeta' --exclude='.vscode' --exclude='.luarc.json' --exclude='LICENSE' --exclude='README.md' --exclude='CHANGELOG.md' ./ package/ElvUI_DynamicGroupFrames/
-          cd package
-          zip -r "../$ZIP_NAME" ElvUI_DynamicGroupFrames
-          cd ..
-          ls -lah "$ZIP_NAME"
-
-      - name: Upload asset to GitHub release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: ElvUI_DynamicGroupFrames-${{ github.ref_name }}.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish to CurseForge and Wago
-        if: ${{ !inputs.skip_publish && !github.event.release.prerelease }}
-        uses: BigWigsMods/packager@v2
-        env:
-          CF_API_KEY: ${{ secrets.CURSEFORGE_TOKEN }}
-          WAGO_API_TOKEN: ${{ secrets.WAGO_TOKEN }}
+    uses: PeluxGit/wow-addon-release-workflows/.github/workflows/addon-release.yml@main
+    with:
+      addon_folder: ${{ vars.ADDON_FOLDER || github.event.repository.name }}
+      addon_title: ${{ vars.ADDON_TITLE || vars.ADDON_FOLDER || github.event.repository.name }}
+      skip_publish: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_publish || false }}
+    secrets: inherit
