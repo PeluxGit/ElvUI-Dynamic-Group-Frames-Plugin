@@ -9,9 +9,7 @@
 ## X-ElvVersion: 14.02
 ## X-Website: https://github.com/PeluxGit/ElvUI-Dynamic-Group-Frames-Plugin
 ## X-Curse-Project-ID: 1379121
-## X-Curse-Project-Slug: elvui-dynamic-group-frames-plugin
 ## X-Wago-ID: j6jzrx6R
-## X-Wago-Slug: elvui-dynamic-group-frames-plugin
 
 Core.lua
 Options.lua
