@@ -258,6 +258,7 @@ function EDGF:apply_all()
   end
 
   local units = units_db(); if not units then return end
+  local forceRefresh = self._forceRefreshActive
   local size    = IsInRaid() and GetNumGroupMembers()
       or (IsInGroup() and (GetNumSubgroupMembers() + 1))
       or 1
@@ -271,12 +272,17 @@ function EDGF:apply_all()
     units.party.enable = false
   end
 
-  if set_header_visibility(units, showKey, get_managed_keys()) then
+  local visibilityChanged = set_header_visibility(units, showKey, get_managed_keys())
+  if visibilityChanged then
     for _, key in ipairs({ "party", "raid1", "raid2", "raid3" }) do
       if units[key] and UF then self:_safe_call(UF.CreateAndUpdateHeaderGroup, UF, key) end
     end
+  elseif forceRefresh and UF then
+    -- On reloads the DB values may already match; force a rebuild to avoid staggered headers.
+    self:_safe_call(UF.CreateAndUpdateHeaderGroup, UF, showKey)
   end
 
+  self._forceRefreshActive = nil
   self._currentHeaderKey = showKey
   C_Timer.After(DELAYS.enforce, function()
     if InCombatLockdown() then
@@ -289,9 +295,10 @@ end
 
 -- Manually applies and immediately enforces the active header; queues if in combat
 function EDGF:apply_now()
+  self._forceRefreshActive = true
   if InCombatLockdown() then
     self._pending = true
-    safe_print("|cff88ccffEDGF|r: in combat — queued; will run after combat.")
+    safe_print("|cff88ccffEDGF|r: in combat - queued; will run after combat.")
     return
   end
   self:apply_all()
@@ -329,6 +336,7 @@ function EDGF:PLAYER_ENTERING_WORLD()
     self:normalize_all()
     self._normalized = true
   end
+  self._forceRefreshActive = true
   self:apply_all()
 end
 
