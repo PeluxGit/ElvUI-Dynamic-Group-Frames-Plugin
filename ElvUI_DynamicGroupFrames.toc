@@ -10,6 +10,7 @@
 ## X-Website: https://github.com/PeluxGit/ElvUI-Dynamic-Group-Frames-Plugin
 ## X-Curse-Project-ID: 1379121
 ## X-Wago-ID: j6jzrx6R
+## X-WoWI-ID: 26979
 
 Core.lua
 Options.lua
