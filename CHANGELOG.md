@@ -1,5 +1,11 @@
 # Changelog
 
+## [2026-02-13]
+
+### Changed
+
+- Bump TOC
+
 ## 1.0.1 - Fix raid display stagger on reload
 
 - Force-refresh the active group on login and when `/edgf` is used to prevent display issues after `/reload`.
