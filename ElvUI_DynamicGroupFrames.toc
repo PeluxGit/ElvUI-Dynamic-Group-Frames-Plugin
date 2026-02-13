@@ -6,6 +6,7 @@
 ## RequiredDeps: ElvUI
 ## OptionalDeps: Ace3, LibElvUIPlugin-1.0
 ## Group: ElvUI
+## DefaultState: enabled
 ## X-Category: UnitFrames
 ## X-Website: https://github.com/PeluxGit/ElvUI-Dynamic-Group-Frames-Plugin
 ## X-Curse-Project-ID: 1379121
